@@ -1,4 +1,6 @@
-﻿Function ExtractDomainlessUserName {
+﻿#Requires -Module PSTerminalServices
+
+Function ExtractDomainlessUserName {
     param(
         [String]$UserName
     )
