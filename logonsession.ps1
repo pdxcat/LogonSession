@@ -8,14 +8,25 @@
     return $user
 }
 
+Function AssertIsOnline {
+    param(
+        [String]$ComputerName
+    )
+    $online = Test-Connection -ComputerName $ComputerName -Count 1 -Quiet
+    if (-not $online) { throw "Computer $ComputerName is not on." }
+}
+
 Function GetSessionLockTime {
     param(
         $Comp
     )
+    $ComputerName = $Comp.__SERVER
+    AssertIsOnline $ComputerName
+
     # Get time of session lock.
     $locktime = $null
     try {
-        $locktimes = Invoke-Command -ComputerName $Comp.__SERVER -ScriptBlock {Get-EventLog Security -InstanceId 4800,4801 -ErrorAction SilentlyContinue}
+        $locktimes = Invoke-Command -ComputerName $ComputerName -ScriptBlock {Get-EventLog Security -InstanceId 4800,4801 -ErrorAction SilentlyContinue}
     } catch {
         Write-Warning "Unable to get session lock times from computer $ComputerName."
     }
@@ -39,8 +50,7 @@ Function LogonSessionFactory {
     param(
         [String]$ComputerName = $env:COMPUTERNAME
     )
-    $online = Test-Connection -ComputerName $ComputerName -Count 1 -Quiet
-    if (-not $online) { throw "Computer $ComputerName is not on." }
+    AssertIsOnline $ComputerName
 
     $comp = Get-WmiObject -ComputerName $ComputerName -Class Win32_ComputerSystem
     $os = Get-WmiObject -ComputerName $ComputerName -Class Win32_OperatingSystem
