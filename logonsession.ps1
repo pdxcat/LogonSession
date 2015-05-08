@@ -56,22 +56,32 @@ Function LogonSessionFactory {
 
     $comp = Get-WmiObject -ComputerName $ComputerName -Class Win32_ComputerSystem
     $os = Get-WmiObject -ComputerName $ComputerName -Class Win32_OperatingSystem
+    $tsSessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
 
-    if ($comp.UserName) {
-        $locked = if (Get-Process -Name LogonUI -ComputerName $ComputerName -ErrorAction SilentlyContinue) {$true} else {$false}
-    } else {
-        $locked = $false
+    $logonSessions = @()
+    foreach ($ts in $tsSessions) {
+        $locktime = GetSessionLockTime $comp
+
+        $session = New-Object -TypeName PSCustomObject
+        $session | Add-Member -MemberType NoteProperty -Name ComputerName -Value $comp.__SERVER
+        $session | Add-Member -MemberType NoteProperty -Name UserName -Value $ts.UserName
+        $session | Add-Member -MemberType NoteProperty -Name Type -Value $ts.WindowStationName
+        $session | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
+        if ($ts.WindowStationName -eq 'Console') {
+            # Console session
+            $locked = if (Get-Process -Name LogonUI -ComputerName $ComputerName -ErrorAction SilentlyContinue) {$true} else {$false}
+            if ($locked) {
+                $session | Add-Member -MemberType NoteProperty -Name Status -Value "Locked"
+            } else {
+                $session | Add-Member -MemberType NoteProperty -Name Status -Value $ts.ConnectionState
+            }
+        } else {
+            # RDP or Switched-User session
+            $session | Add-Member -MemberType NoteProperty -Name Status -Value $ts.ConnectionState
+        }
+        $logonSessions += $session
     }
-
-    $locktime = GetSessionLockTime $comp
-
-    $session = New-Object -TypeName PSCustomObject
-    $session | Add-Member -MemberType NoteProperty -Name ComputerName -Value $comp.__SERVER
-    $session | Add-Member -MemberType NoteProperty -Name UserName -Value $comp.UserName
-    $session | Add-Member -MemberType NoteProperty -Name Locked -Value $locked
-    $session | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
-
-    return $session
+    return $logonSessions
 }
 
 if ($args) { LogonSessionFactory $args[0] } else { LogonSessionFactory }
