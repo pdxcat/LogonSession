@@ -57,12 +57,8 @@ Function LogonSessionFactory {
         [String]$ComputerName = $env:COMPUTERNAME
     )
     AssertIsOnline $ComputerName
-
-    $comp = Get-WmiObject -ComputerName $ComputerName -Class Win32_ComputerSystem
-    $os = Get-WmiObject -ComputerName $ComputerName -Class Win32_OperatingSystem
     $tsSessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
     $locktimes = GetLockTimes $ComputerName
-    $logonSessions = @()
     foreach ($ts in $tsSessions) {
         $locktime = GetSessionLockTime $locktimes $ts
         $ts | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
@@ -72,9 +68,8 @@ Function LogonSessionFactory {
             $locked = if (Get-Process -Name LogonUI -ComputerName $ComputerName -ErrorAction SilentlyContinue) {$true} else {$false}
         }
         $ts | Add-Member -MemberType NoteProperty -Name Locked -Value $locked # Intentionally null for disconnected sessions
-        $logonSessions += $ts
     }
-    return $logonSessions
+    return $tsSessions
 }
 
 if ($args) { LogonSessionFactory $args[0] } else { LogonSessionFactory }
