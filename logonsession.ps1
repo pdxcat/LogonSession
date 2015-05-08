@@ -20,32 +20,36 @@ Function AssertIsOnline {
 
 Function GetSessionLockTime {
     param(
-        $Comp
+        $locktimes,
+        $ts
     )
-    $ComputerName = $Comp.__SERVER
+    if ($locktimes) {
+        $logonuser = ExtractDomainlessUserName $ts.UserName
+        $userlocktimes = $locktimes | Sort-Object TimeGenerated | Where-Object { (ExtractDomainlessUserName ($_.ReplacementStrings[1]) -like $logonuser) -and ($_.TimeGenerated -gt $ts.LoginTime) }
+        if ($userlocktimes) {
+            if ($userlocktimes[0].InstanceId -eq 4800) {
+                    $locktime = Get-Date $locktimes[0].TimeGenerated
+            } else {
+                Write-Debug "Latest lock event is an unlock."
+            }
+        }
+    }
+    return $locktime
+}
+
+Function GetLockTimes {
+    param(
+        [String]$ComputerName
+    )
     AssertIsOnline $ComputerName
 
     # Get time of session lock.
-    $locktime = $null
     try {
         $locktimes = Invoke-Command -ComputerName $ComputerName -ScriptBlock {Get-EventLog Security -InstanceId 4800,4801 -ErrorAction SilentlyContinue}
     } catch {
         Write-Warning "Unable to get session lock times from computer $ComputerName."
     }
-    if ($locktimes) {
-        if ($locktimes[0].InstanceId -eq 4800) {
-            $lockuser = ExtractDomainlessUserName $locktimes[0].ReplacementStrings[1]
-            $logonuser = ExtractDomainlessUserName $comp.UserName
-            if ($lockuser -like $logonuser) {
-                $locktime = Get-Date $locktimes[0].TimeGenerated
-            } else {
-                Write-Debug "Lockuser ($lockuser) does not match logonuser ($logonuser)"
-            }
-        } else {
-            Write-Debug "Latest lock event is an unlock."
-        }
-    }
-    return $locktime
+    return $locktimes
 }
 
 Function LogonSessionFactory {
@@ -57,10 +61,10 @@ Function LogonSessionFactory {
     $comp = Get-WmiObject -ComputerName $ComputerName -Class Win32_ComputerSystem
     $os = Get-WmiObject -ComputerName $ComputerName -Class Win32_OperatingSystem
     $tsSessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
-
+    $locktimes = GetLockTimes $ComputerName
     $logonSessions = @()
     foreach ($ts in $tsSessions) {
-        $locktime = GetSessionLockTime $comp
+        $locktime = GetSessionLockTime $locktimes $ts
         $ts | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
         $ts | Add-Member -MemberType ScriptMethod -Name Disconnect -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Disconnect-TSSession -Force} -Force
         $ts | Add-Member -MemberType ScriptMethod -Name Logoff -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Stop-TSSession -Force} -Force
