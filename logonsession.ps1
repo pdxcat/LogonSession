@@ -21,11 +21,11 @@ Function AssertIsOnline {
 Function GetSessionLockTime {
     param(
         $locktimes,
-        $ts
+        $session
     )
     if ($locktimes) {
-        $logonuser = ExtractDomainlessUserName $ts.UserName
-        $userlocktimes = $locktimes | Sort-Object TimeGenerated | Where-Object { (ExtractDomainlessUserName ($_.ReplacementStrings[1]) -like $logonuser) -and ($_.TimeGenerated -gt $ts.LoginTime) }
+        $logonuser = ExtractDomainlessUserName $session.UserName
+        $userlocktimes = $locktimes | Sort-Object TimeGenerated | Where-Object { (ExtractDomainlessUserName ($_.ReplacementStrings[1]) -like $logonuser) -and ($_.TimeGenerated -gt $session.LoginTime) }
         if ($userlocktimes) {
             if ($userlocktimes[0].InstanceId -eq 4800) {
                     $locktime = Get-Date $locktimes[0].TimeGenerated
@@ -57,19 +57,19 @@ Function LogonSessionFactory {
         [String]$ComputerName = $env:COMPUTERNAME
     )
     AssertIsOnline $ComputerName
-    $tsSessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
+    $sessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
     $locktimes = GetLockTimes $ComputerName
-    foreach ($ts in $tsSessions) {
-        $locktime = GetSessionLockTime $locktimes $ts
-        $ts | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
-        $ts | Add-Member -MemberType ScriptMethod -Name Disconnect -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Disconnect-TSSession -Force} -Force
-        $ts | Add-Member -MemberType ScriptMethod -Name Logoff -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Stop-TSSession -Force} -Force
-        if (($ts.WindowStationName -eq 'Console') -and ($ts.ConnectionState -eq 'Active')) {
+    foreach ($session in $sessions) {
+        $locktime = GetSessionLockTime $locktimes $session
+        $session | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
+        $session | Add-Member -MemberType ScriptMethod -Name Disconnect -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Disconnect-TSSession -Force} -Force
+        $session | Add-Member -MemberType ScriptMethod -Name Logoff -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Stop-TSSession -Force} -Force
+        if (($session.WindowStationName -eq 'Console') -and ($session.ConnectionState -eq 'Active')) {
             $locked = if (Get-Process -Name LogonUI -ComputerName $ComputerName -ErrorAction SilentlyContinue) {$true} else {$false}
         }
-        $ts | Add-Member -MemberType NoteProperty -Name Locked -Value $locked # Intentionally null for disconnected sessions
+        $session | Add-Member -MemberType NoteProperty -Name Locked -Value $locked # Intentionally null for disconnected sessions
     }
-    return $tsSessions
+    return $sessions
 }
 
 if ($args) { LogonSessionFactory $args[0] } else { LogonSessionFactory }
