@@ -64,6 +64,7 @@ Function Get-LogonSession {
         $session | Add-Member -MemberType NoteProperty -Name LockTime -Value $locktime
         $session | Add-Member -MemberType ScriptMethod -Name Disconnect -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Disconnect-TSSession -Force} -Force
         $session | Add-Member -MemberType ScriptMethod -Name Logoff -Value {Import-Module PSTerminalServices;Get-TSSession -ComputerName $($this.ComputerName) -UserName $($this.UserName) | Stop-TSSession -Force} -Force
+        $session | Add-Member -MemberType ScriptMethod -Name Logout -Value {$this.Logoff()}
         if (($session.WindowStationName -eq 'Console') -and ($session.ConnectionState -eq 'Active')) {
             $locked = if (Get-Process -Name LogonUI -ComputerName $ComputerName -ErrorAction SilentlyContinue) {$true} else {$false}
         }
