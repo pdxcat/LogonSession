@@ -52,7 +52,7 @@ Function GetLockTimes {
     return $locktimes
 }
 
-Function LogonSessionFactory {
+Function Get-LogonSession {
     param(
         [String]$ComputerName = $env:COMPUTERNAME
     )
@@ -72,4 +72,4 @@ Function LogonSessionFactory {
     return $sessions
 }
 
-if ($args) { LogonSessionFactory $args[0] } else { LogonSessionFactory }
+if ($args) { Get-LogonSession $args[0] } else { Get-LogonSession }
