@@ -1,6 +1,4 @@
-﻿#Requires -Module PSTerminalServices
-
-Function ExtractDomainlessUserName {
+﻿Function ExtractDomainlessUserName {
     param(
         [String]$UserName
     )
@@ -72,5 +70,3 @@ Function Get-LogonSession {
     }
     return $sessions
 }
-
-if ($args) { Get-LogonSession $args[0] } else { Get-LogonSession }
