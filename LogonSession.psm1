@@ -13,7 +13,7 @@ Function AssertIsOnline {
         [String]$ComputerName
     )
     $online = Test-Connection -ComputerName $ComputerName -Count 1 -Quiet
-    if (-not $online) { throw "Computer $ComputerName is not on." }
+    if (-not $online) { throw "Computer $ComputerName is not on.`n" }
 }
 
 Function GetSessionLockTime {
@@ -55,7 +55,7 @@ Function Get-LogonSession {
         [String]$ComputerName = $env:COMPUTERNAME
     )
     AssertIsOnline $ComputerName
-    $sessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' }
+    $sessions = Get-TSSession -ComputerName $ComputerName | Where-Object { $_.UserName -ne '' } | Sort-Object -Property UserName
     $locktimes = GetLockTimes $ComputerName
     foreach ($session in $sessions) {
         $locktime = GetSessionLockTime $locktimes $session
